@@ -2,11 +2,15 @@ import streamlit as st
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 
 st.set_page_config(page_title="Diabetes Classifier", layout="centered")
 
+# Get backend URL from environment variable or use default
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+
 st.title("🩺 Diabetes Classification Predictor")
-st.markdown("Enter patient details below to classify the diabetes condition.")
+st.write("Enter patient details below to classify the diabetes condition.")
 
 # Form Layout in 2 columns
 with st.form("prediction_form"):
@@ -44,9 +48,9 @@ def show_comparison_chart(values_dict):
     st.subheader("📊 Health Indicator Comparison")
     st.bar_chart(df[["Input"]])
     
-    st.caption("🧠 Reference Ranges:")
+    st.caption("Reference Ranges:")
     for k, (low, high) in ranges.items():
-        st.write(f"- **{k}**: {low} to {high}")
+        st.write(f"- {k}: {low} to {high}")
 
 if submit:
     # Determine age group and typical ranges
@@ -84,28 +88,42 @@ if submit:
     }
 
     try:
-        response = requests.post("https://diabetes-backend.azurewebsites.net/predict", json=input_data)
-        if response.status_code == 200:
-            result = response.json()
-            st.success(f"Prediction: {result['status']}")
-            st.write(f"Explanation: {result['explanation']}")
+        # Add timeout and retry logic
+        for attempt in range(3):
+            try:
+                response = requests.post(
+                    f"{BACKEND_URL}/predict",
+                    json=input_data,
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    st.success(f"Prediction: {result['status']}")
+                    st.write(f"Explanation: {result['explanation']}")
 
-            # Display chart comparing input with age-specific ranges
-            st.subheader(f"Input vs Normal Ranges ({age_group})")
+                    # Display chart comparing input with age-specific ranges
+                    st.subheader(f"Input vs Normal Ranges ({age_group})")
 
-            chart_data = {
-                "Input Value": [bmi, HbA1c_level, blood_glucose_level],
-                "Typical Min": [v[0] for v in ranges.values()],
-                "Typical Max": [v[1] for v in ranges.values()],
-            }
-            df = pd.DataFrame(chart_data, index=["BMI", "HbA1c Level", "Blood Glucose Level"])
-            st.bar_chart(df[["Input Value"]])
+                    chart_data = {
+                        "Input Value": [bmi, HbA1c_level, blood_glucose_level],
+                        "Typical Min": [v[0] for v in ranges.values()],
+                        "Typical Max": [v[1] for v in ranges.values()],
+                    }
+                    df = pd.DataFrame(chart_data, index=["BMI", "HbA1c Level", "Blood Glucose Level"])
+                    st.bar_chart(df[["Input Value"]])
 
-            # Show typical ranges as text
-            st.write("Typical Ranges for Your Age Group:")
-            for feature, (min_val, max_val) in ranges.items():
-                st.write(f"- {feature}: {min_val} to {max_val}")
-        else:
-            st.error(f"Error: {response.text}")
+                    # Show typical ranges as text
+                    st.write("Typical Ranges for Your Age Group:")
+                    for feature, (min_val, max_val) in ranges.items():
+                        st.write(f"- {feature}: {min_val} to {max_val}")
+                    break
+                else:
+                    st.error(f"Error: {response.text}")
+                    break
+            except requests.exceptions.RequestException as e:
+                if attempt == 2:  # Last attempt
+                    st.error(f"Error connecting to backend: {e}")
+                else:
+                    continue
     except Exception as e:
-        st.error(f"Error connecting to backend: {e}")
+        st.error(f"Unexpected error: {e}")

@@ -3,8 +3,8 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
       - "8501:8501"
     environment:
@@ -13,11 +13,13 @@ services:
       - backend
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     volumes:
@@ -28,6 +30,8 @@ services:
       - mlflow
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   mlflow:
     build:
@@ -39,6 +43,8 @@ services:
       - ./mlflow_tracking:/mlflow
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   app-network:
