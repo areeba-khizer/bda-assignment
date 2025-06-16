@@ -24,23 +24,6 @@ services:
       - "8000:8000"
     volumes:
       - ./model.pkl:/app/model.pkl
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-    depends_on:
-      - mlflow
-    networks:
-      - app-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  mlflow:
-    build:
-      context: .
-      dockerfile: mlflow.Dockerfile
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./mlflow_tracking:/mlflow
     networks:
       - app-network
     extra_hosts:
